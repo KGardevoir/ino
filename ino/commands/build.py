@@ -118,9 +118,9 @@ class Build(Command):
                             help='Verbose make output')
 
     def discover(self, args):
-        self.e.find_arduino_dir('arduino_core_dir', 
-                                ['hardware', 'arduino', 'cores', 'arduino'], 
-                                ['Arduino.h'] if self.e.arduino_lib_version.major else ['WProgram.h'], 
+        self.e.find_arduino_dir('arduino_core_dir',
+                                ['hardware', 'arduino', 'cores', 'arduino'],
+                                ['Arduino.h'] if self.e.arduino_lib_version.major else ['WProgram.h'],
                                 'Arduino core library')
 
         self.e.find_arduino_dir('arduino_libraries_dir', ['libraries'],
@@ -141,7 +141,7 @@ class Build(Command):
 
         for tool_key, tool_binary in toolset:
             self.e.find_arduino_tool(
-                tool_key, ['hardware', 'tools', 'avr', 'bin'], 
+                tool_key, ['hardware', 'tools', 'avr', 'bin'],
                 items=[tool_binary], human_name=tool_binary)
 
     def setup_flags(self, args):
@@ -152,8 +152,8 @@ class Build(Command):
             mcu,
             '-DF_CPU=' + board['build']['f_cpu'],
             '-DARDUINO=' + str(self.e.arduino_lib_version.as_int()),
-            '-I' + self.e['arduino_core_dir'],
-        ]) 
+            '-I' + self.e['arduino_core_dir']
+        ])
         # Add additional flags as specified
         self.e['cppflags'] += SpaceList(shlex.split(args.cppflags))
 
@@ -161,9 +161,9 @@ class Build(Command):
             self.e['cppflags'].append('-DUSB_VID=%s' % board['build']['vid'])
         if 'pid' in board['build']:
             self.e['cppflags'].append('-DUSB_PID=%s' % board['build']['pid'])
-            
+
         if self.e.arduino_lib_version.major:
-            variant_dir = os.path.join(self.e.arduino_variants_dir, 
+            variant_dir = os.path.join(self.e.arduino_variants_dir,
                                        board['build']['variant'])
             self.e.cppflags.append('-I' + variant_dir)
 

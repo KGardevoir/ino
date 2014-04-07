@@ -97,7 +97,7 @@ class Environment(dict):
             try:
                 self.update(pickle.load(f))
             except:
-                print colorize('Environment dump exists (%s), but failed to load' % 
+                print colorize('Environment dump exists (%s), but failed to load' %
                                self.dump_filepath, 'yellow')
 
     @property
@@ -123,7 +123,7 @@ class Environment(dict):
     def hex_path(self):
         return os.path.join(self.build_dir, self.hex_filename)
 
-    def _find(self, key, items, places, human_name, join):
+    def _find(self, key, items, places, human_name, join, do_glob=False):
         if key in self:
             return self[key]
 
@@ -131,8 +131,9 @@ class Environment(dict):
 
         # expand env variables and globs in `places` and split on colons
         places = itertools.chain.from_iterable(os.path.expandvars(p).split(os.pathsep) for p in places)
-        places = map(glob, places)
-        places = list(itertools.chain.from_iterable(places)) # Flatten after globbing
+        if do_glob:
+            places = map(glob, places)
+            places = list(itertools.chain.from_iterable(places)) # Flatten after globbing
         places = map(os.path.expanduser, places)
 
         print 'Searching for', human_name, '...',
@@ -142,8 +143,13 @@ class Environment(dict):
                 path = os.path.join(p, i)
                 if os.path.exists(path):
                     result = path if join else p
-                    print colorize(result, 'green')
-                    results += [result]
+                    if do_glob:
+                        results += [result]
+                    else:
+                        print colorize(result, 'green')
+                        self[key] = result
+                        return results
+        print ', '.join(colorize(r, 'green') for r in results)
 
         if results:
             self[key] = results
@@ -153,20 +159,20 @@ class Environment(dict):
             raise Abort("%s not found. Searched in following places: %s" %
                         (human_name, ''.join(['\n  - ' + p for p in places])))
 
-    def find_dir(self, key, items, places, human_name=None):
-        return self._find(key, items or ['.'], places, human_name, join=False)
+    def find_dir(self, key, items, places, human_name=None, do_glob=False):
+        return self._find(key, items or ['.'], places, human_name, join=False, do_glob=do_glob)
 
-    def find_file(self, key, items=None, places=None, human_name=None):
-        return self._find(key, items or [key], places, human_name, join=True)
+    def find_file(self, key, items=None, places=None, human_name=None, do_glob=False):
+        return self._find(key, items or [key], places, human_name, join=True, do_glob=do_glob)
 
     def find_tool(self, key, items, places=None, human_name=None):
         return self.find_file(key, items, places or ['$PATH'], human_name)
 
-    def find_arduino_dir(self, key, dirname_parts, items=None, human_name=None):
-        return self.find_dir(key, items, self.arduino_dist_places(dirname_parts), human_name)
+    def find_arduino_dir(self, key, dirname_parts, items=None, human_name=None, do_glob=False):
+        return self.find_dir(key, items, self.arduino_dist_places(dirname_parts), human_name=human_name, do_glob=do_glob)
 
-    def find_arduino_file(self, key, dirname_parts, items=None, human_name=None):
-        return self.find_file(key, items, self.arduino_dist_places(dirname_parts), human_name)
+    def find_arduino_file(self, key, dirname_parts, items=None, human_name=None, do_glob=False):
+        return self.find_file(key, items, self.arduino_dist_places(dirname_parts), human_name=human_name, do_glob=do_glob)
 
     def find_arduino_tool(self, key, dirname_parts, items=None, human_name=None):
         # if not bundled with Arduino Software the tool should be searched on PATH
@@ -191,8 +197,8 @@ class Environment(dict):
         if 'board_models' in self:
             return self['board_models']
 
-        boards_txts =  self.find_arduino_file('boards.txt', ['hardware', '*'],
-                                            human_name='Board description file (boards.txt)')
+        boards_txts = self.find_arduino_file('boards.txt', ['hardware', '*'],
+                                             human_name='Board description file (boards.txt)', do_glob=True)
 
         self['board_models'] = BoardModels()
         self['board_models'].default = self.default_board_model
@@ -218,19 +224,19 @@ class Environment(dict):
 
     def board_model(self, key):
         return self.board_models()[key]
-    
+
     def add_board_model_arg(self, parser):
         help = '\n'.join([
             "Arduino board model (default: %(default)s)",
-            "For a full list of supported models run:", 
+            "For a full list of supported models run:",
             "`ino list-models'"
         ])
 
-        parser.add_argument('-m', '--board-model', metavar='MODEL', 
+        parser.add_argument('-m', '--board-model', metavar='MODEL',
                             default=self.default_board_model, help=help)
 
     def add_arduino_dist_arg(self, parser):
-        parser.add_argument('-d', '--arduino-dist', metavar='PATH', 
+        parser.add_argument('-d', '--arduino-dist', metavar='PATH',
                             help='Path to Arduino distribution, e.g. ~/Downloads/arduino-0022.\nTry to guess if not specified')
 
     def serial_port_patterns(self):
